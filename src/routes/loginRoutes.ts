@@ -1,4 +1,4 @@
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 
 interface RequestWithBody extends Request {
   body: {
@@ -6,23 +6,17 @@ interface RequestWithBody extends Request {
   };
 }
 
-const router = Router();
+function requireAuth(req: Request, res: Response, next: NextFunction) {
+  if (req.session && req.session.loggedIn) {
+    next();
+    return;
+  }
 
-router.get('/login', (req, res) => {
-  res.send(`
-    <form method="POST">
-      <div>
-        <label>Email</label>
-        <input type="email" name="email" />
-      </div>
-      <div>
-        <label>Password</label>
-        <input type="password" name="password" />
-      </div>
-      <button type="submit">Submit</button>
-    </form>
-  `);
-});
+  res.status(403);
+  res.send('You are not Authorized');
+}
+
+const router = Router();
 
 router.post('/login', (req: RequestWithBody, res: Response) => {
   const { email, password } = req.body;
@@ -35,7 +29,7 @@ router.post('/login', (req: RequestWithBody, res: Response) => {
   ) {
     req.session = { loggedIn: true };
 
-    res.redirect('/');
+    res.redirect('/protected');
   }
 });
 
@@ -60,6 +54,17 @@ router.get('/', (req: Request, res: Response) => {
 router.get('/logout', (req: Request, res: Response) => {
   req.session = undefined;
   res.redirect('/');
+});
+
+router.get('/protected', requireAuth, (req: Request, res: Response) => {
+  if (req.session && req.session.loggedIn) {
+    res.send(`
+      <div>
+        <p>Good man! you are logged in</p>
+        <a href="/logout">Logout</a>
+      </div>
+    `);
+  }
 });
 
 export { router };
